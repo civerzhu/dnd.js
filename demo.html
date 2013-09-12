@@ -1,0 +1,121 @@
+﻿<!DOCTYPE html>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+        <title>Drag and Drop Demo</title>
+        <style>
+        .container{
+            position: relative;
+            width: 200px;
+            height: 200px;
+            border: 1px solid #000;
+        }
+		.sourceEle{
+            /* position: absolute;
+            top: 10px;
+            left: 10px; */
+            float: left;
+            margin: 6px;
+			width: 100px;
+			height: 100px;
+            margin: 6px;
+			background: #66CC66;
+            border: 1px solid #D5D5D5;
+		}
+        .handlerEle{
+            width: 100%;
+            height: 20px;
+            background: #CDCDCD;
+        }
+		.targetEle{
+            float: left;
+			width: 240px;
+			height: 240px;
+            margin: 8px;
+			background: #F8F8F8;
+            border: 4px solid #B1B1AF;
+		}
+        .hoverTarget{
+            background: #CACE7D;
+        }
+        .activeTarget{
+            border: 4px dotted #B1B1AF;
+        }
+        .clearfix{
+            clear: both;
+        }
+        .proxyEle{
+            display: none;
+            width: 100px;
+            height: 100px;
+            background: rgba(215, 168, 210, .5);
+        }
+        </style>
+        <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+        <script src="dnd.js"></script>
+    </head>
+    <body> 
+        <div class="sourceEle">
+            <div>
+                <div class="handlerEle"></div>
+                <span>1</span>
+            </div>
+        </div>
+        <div class="sourceEle">
+            <div>
+                <div class="handlerEle"></div>
+                <span>2</span>
+            </div>
+        </div>
+        <div class="sourceEle">
+            <div class="handlerEle"></div>
+            <span>3</span>
+        </div>
+        <div class="clearfix"></div>
+        <p>把源节点拖动到目标节点上面。</p>
+        <p>拖动的结果是：</p>
+        <p class="result">未拖动</p>
+    	<div class="targetEle">A</div>
+        <div class="targetEle">B</div>
+        <div class="clearfix"></div>
+        <div class="proxyEle">proxy1</div>
+        <div class="proxyEle">proxy2</div>
+        <div class="proxyEle">proxy3</div>
+        <script>
+            var dnd = new DnD(".sourceEle", {
+                "target" : ".targetEle",
+                "handler" : ".handlerEle",
+                "isRevert" : true,
+                "isMultiDrag" : false,
+                "proxy" : ".proxyEle",
+                "onDragStart" : function($source, $targets){
+                    $source.css({
+                        "box-shadow" : "0 0 10px #5FACCD"
+                    });
+                },
+                "onDragEnd" :function($source, $targets){
+                    $source.css({
+                        "box-shadow" : "none"
+                    });
+                },
+                "onDropIn" : function($source, $target){
+                    // console.log("drop in!");
+                },
+                "onDropOut" : function($source, $target){
+                    // console.log("drop out!");
+                },
+                "onDrop" : function($source, $target){
+                    var span = $source.find("span");
+                    var sourceStr = "";
+                    span.each(function(index, item){
+                        sourceStr += ($(item).html() + " ");
+                    });
+                    $(".result").html(sourceStr + " is in " + $target.html());
+                    // this.destroy();
+                },
+                "hoverClass" : "hoverTarget",
+                "activeClass" : "activeTarget"
+            });
+        </script>
+    </body>
+</html>
