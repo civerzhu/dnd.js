@@ -112,6 +112,7 @@ var Dragger = function(ele, opt){
 				"ele": element,
 				"dragEle" : null,
 				"dropEle" : null,
+                "allDragEle" : [],
 				"handler" : null,
 				"proxy" : null,
 				"data" : null,
@@ -178,25 +179,18 @@ var Dragger = function(ele, opt){
 		},
 
 		create: function(){
-            this.handler.bind('mousedown', $.proxy(this.dragStart, this));
-            $(document).bind('mouseup', $.proxy(this.dragEnd, this));
-            $(document).bind('mousemove', $.proxy(this.dragMove, this));
+            this.handler.bind('mousedown', $.proxy(this.allDragStart, this));
+            $(document).bind('mouseup', $.proxy(this.allDragEnd, this));
+            $(document).bind('mousemove', $.proxy(this.allDragMove, this));
         },
 
         register: function(){
             this.draggerID = DnDManager.addDragger(this);
         },
 
-        dragStart: function(evt){
-        	if(evt.which != 1){ //如果点击的不是鼠标左键
-                return ;
-            }
-            evt.preventDefault();
-            evt.stopPropagation();
-            this._isCatch = true;
-            this._lastPointer.x = evt.pageX;
-            this._lastPointer.y = evt.pageY;
-
+        dragStart: function(pX, pY, offsetT, offsetL, index){            
+            this._lastPointer.x = pX;
+            this._lastPointer.y = pY;
             if(this.proxy){
             	this.proxy.css({
             		"display" : "block",
@@ -221,29 +215,45 @@ var Dragger = function(ele, opt){
             }else if(this.effectAllowed == "copy"){
             	// do nothing...
             }
+            //移动起点位置
+            this.dragEle.offset({
+                "top" : offsetT + index * 4,
+                "left" : offsetL + index * 4
+            });
+        },
 
+        allDragStart: function(evt){
+            if(evt.which != 1){ //如果点击的不是鼠标左键
+                return ;
+            }
+            evt.preventDefault();
+            evt.stopPropagation();
+            this._isCatch = true;
+            var pX = evt.pageX,
+                pY = evt.pageY,
+                offsetT = this.ele.offset().top,
+                offsetL = this.ele.offset().left;
+            this.allDragEle = DnDManager.getGroup(this);
             //通过DnDManager获得dropEle
             this.dropEle = DnDManager.getDropper();
+            for(var at = 0; at < this.allDragEle.length; at++){
+                this.allDragEle[at].dragStart(pX, pY, offsetT, offsetL, at);
+                this.allDragEle[at].dropEle = this.dropEle;
+            }
 
             if(this.dropEle && this.dropEle.length){
-            	for(var n = 0; n < this.dropEle.length; n++){
-            		this.dropEle[n].addStyle("active");
-            	}
+                for(var n = 0; n < this.dropEle.length; n++){
+                    this.dropEle[n].addStyle("active");
+                }
             }
 
             if(this.ondragstart){
-            	this.ondragstart(this.ele);
+                this.ondragstart(this.allDragEle);
             }
         },
 
 
-        dragEnd: function(evt){
-        	if(this._isCatch){
-        		if(evt.which != 1){ //如果点击的不是鼠标左键
-                    return ;
-                }
-                var pX = evt.pageX, pY = evt.pageY;
-                evt.preventDefault();
+        dragEnd: function(pX, pY){
 	            if(this._revert){
 	            	if(this.proxy){
 	            		if(this.effectAllowed == "copy"){
@@ -301,32 +311,43 @@ var Dragger = function(ele, opt){
 	            		}
 	            	}
 	            }
+                this.dragEle = this.ele;
+        },
+
+        allDragEnd: function(evt){
+            if(this._isCatch){
+                if(evt.which != 1){ //如果点击的不是鼠标左键
+                    return ;
+                }
+                var pX = evt.pageX, pY = evt.pageY;
+                evt.preventDefault();
+                var allData = [];
+                for(var at = 0; at < this.allDragEle.length; at++){
+                    this.allDragEle[at].dragEnd(pX, pY);
+                    allData.push(this.allDragEle[at].data);
+                }
 
                 if(this.dropEle && this.dropEle.length){
-                	for(var j = 0; j < this.dropEle.length; j++){
-                		this.dropEle[j].removeStyle("active");
-                		this.dropEle[j].removeStyle("hover");
-                		//判断是否在目标节点内释放鼠标
-                		if(this.checkInDrop(pX, pY, j)){
-                			this.dropEle[j].drop(this.ele, this.data);
-                		}
-                	}
+                    for(var j = 0; j < this.dropEle.length; j++){
+                        this.dropEle[j].removeStyle("active");
+                        this.dropEle[j].removeStyle("hover");
+                        //判断是否在目标节点内释放鼠标
+                        if(this.checkInDrop(pX, pY, j)){
+                            //to do ...
+                            this.dropEle[j].drop(this.allDragEle, allData, this.ele);
+                        }
+                    }
                 }
 
                 if(this.ondragend){
-                	this.ondragend(this.ele);
+                    this.ondragend(this.allDragEle);
                 }
                 this._isCatch = false;
-                this.dragEle = this.ele;
-        	}
+            }
         },
 
 
-        dragMove: function(evt){
-        	evt.preventDefault();
-            if(this._isCatch){
-            	var pX = evt.pageX;
-                var pY = evt.pageY;
+        dragMove: function(pX, pY){      	                      	
                 var _dragEle = this.dragEle;
                 var distanceTop, distanceLeft;
                 distanceTop = _dragEle.offset().top + pY - this._lastPointer.y;
@@ -339,19 +360,29 @@ var Dragger = function(ele, opt){
                 this._lastPointer.y = pY;
                 //拖拽到目标节点上时
                 if(this.dropEle && this.dropEle.length){
-                	this._revert = this.isRevert;
-                	for(var k = 0; k < this.dropEle.length; k++){
-                		if(this.checkInDrop(pX, pY, k)){
-                			this.dropEle[k].dropIn(this.ele);
-                			this._revert = false;
-                		}else{
-                			this.dropEle[k].dropOut(this.ele);
-                		}
-                	}
+                    this._revert = this.isRevert;
+                    for(var k = 0; k < this.dropEle.length; k++){
+                        if(this.checkInDrop(pX, pY, k)){
+                            this.dropEle[k].dropIn(this.ele);
+                            this._revert = false;
+                        }else{
+                            this.dropEle[k].dropOut(this.ele);
+                        }
+                    }
                 }
+        },
 
+        allDragMove: function(evt){
+            if(this._isCatch){ 
+                evt.preventDefault();
+                var pX = evt.pageX;
+                var pY = evt.pageY;
+                for(var at = 0; at < this.allDragEle.length; at++){
+                    this.allDragEle[at].dragMove(pX, pY);
+                }
+                
                 if(this.ondragmove){
-                	this.ondragmove(this.ele);
+                    this.ondragmove(this.allDragEle);
                 }
             }
         },
@@ -417,9 +448,6 @@ var Dragger = function(ele, opt){
                 if(callback){
                 	callback();
                 }
-                /*if(_dragger.proxy){
-                    _dragger.proxy.css("display", "none");
-                }*/
             });
         },
 
@@ -486,9 +514,9 @@ var Dragger = function(ele, opt){
                 "user-select" : "auto"
             })
             .off('mouseenter mouseleave')
-            .unbind('mousedown', this.dragStart);
-            $(document).unbind('mouseup', this.dragEnd);
-            $(document).unbind('mousemove', this.dragMove);
+            .unbind('mousedown', this.allDragStart);
+            $(document).unbind('mouseup', this.allDragEnd);
+            $(document).unbind('mousemove', this.allDragMove);
             DnDManager.deleteDragger(this.draggerID);
         }
 	};
@@ -552,9 +580,9 @@ var Dropper = function(ele, opt){
         	}
         },
 
-        drop: function(dragEle, data){
+        drop: function(dragEle, data, ele){
         	if(this.ondrop){
-        		this.ondrop(dragEle, this.ele, data);
+        		this.ondrop(dragEle, this.ele, data, ele);
         	}
         },
 
